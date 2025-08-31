@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 // import { Cross, Heart, Globe } from 'lucide-react';
 
 const Footer: React.FC = () => {
@@ -20,19 +21,10 @@ const Footer: React.FC = () => {
           </div>
           
           <div>
-            <h4 className="font-semibold mb-4 text-yellow-400">Our Mission</h4>
+            <h4 className="font-semibold mb-4 text-yellow-400">Our Goal</h4>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
-                {/* <Heart className="h-4 w-4 text-yellow-400" /> */}
-                <span className="text-blue-100">Unity in Faith</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {/* <Globe className="h-4 w-4 text-yellow-400" /> */}
-                <span className="text-blue-100">Regional Collaboration</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {/* <Cross className="h-4 w-4 text-yellow-400" /> */}
-                <span className="text-blue-100">Spiritual Growth</span>
+                <span className="text-blue-100">To engage and strengthen the capacity of those on the walls of our nation and reprogram our social institution for divine intervention and spiritual inoculation.</span>
               </div>
             </div>
           </div>
@@ -40,18 +32,23 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="font-semibold mb-4 text-yellow-400">Contact</h4>
             <div className="space-y-2 text-blue-100">
-              <p>Email: info@marma.org</p>
-              <p>Phone: +231 XXX XXX XXXX</p>
+              <p>Email: marmalliance@gmail.com</p>
+              <p>Phone: +231 88 027 7072</p>
               <p>Serving: Liberia, Sierra Leone, Guinea, Ivory Coast</p>
             </div>
           </div>
         </div>
         
         <div className="border-t border-blue-800 pt-8 mt-8 text-center">
-          <p className="text-blue-200">
+          <p className="text-blue-200 mb-2">
             © 2025 Mano River Ministerial Alliance. All rights reserved. 
             {/* <span className="text-yellow-400 font-medium"> Walking in Unity and Faith</span> */}
           </p>
+          <div className="mt-4">
+            <Link to="/admin/login" className="text-yellow-400 hover:text-yellow-300 transition-colors duration-200">
+              Admin Portal
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

@@ -63,8 +63,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ registration, onC
                 <p className="text-gray-900 font-medium">{registration.fullName}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Age</label>
-                <p className="text-gray-900">{registration.age || 'Not provided'}</p>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Date of Birth</label>
+                <p className="text-gray-900">{registration.dateOfBirth ? new Date(registration.dateOfBirth).toLocaleDateString() : 'Not provided'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>

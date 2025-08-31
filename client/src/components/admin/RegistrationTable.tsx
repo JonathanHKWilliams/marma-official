@@ -59,7 +59,7 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
   const exportToCSV = () => {
     // Convert registrations to CSV format
     const headers = [
-      'Full Name', 'Age', 'Email', 'Phone', 'Country', 'Address',
+      'Full Name', 'Date of Birth', 'Email', 'Phone', 'Country', 'Address',
       'Education Level', 'Church/Organization', 'Position',
       'Recommendation Name', 'Recommendation Contact', 'Recommendation Relationship',
       'Recommendation Church', 'Membership Purpose', 'Marital Status', 'Gender',
@@ -70,7 +70,7 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
       headers.join(','),
       ...registrations.map(reg => [
         `"${reg.fullName || ''}"`,
-        `"${reg.age || ''}"`,
+        `"${reg.dateOfBirth || ''}"`,
         `"${reg.email || ''}"`,
         `"${reg.phone || ''}"`,
         `"${reg.country || ''}"`,
@@ -154,8 +154,8 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>
                     <div className="text-sm font-medium text-gray-900">{registration.fullName}</div>
-                    {registration.age && (
-                      <div className="text-sm text-gray-500">Age: {registration.age}</div>
+                    {registration.dateOfBirth && (
+                      <div className="text-sm text-gray-500">DOB: {new Date(registration.dateOfBirth).toLocaleDateString()}</div>
                     )}
                   </div>
                 </td>

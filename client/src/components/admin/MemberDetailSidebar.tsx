@@ -72,8 +72,8 @@ const MemberDetailSidebar: React.FC<MemberDetailSidebarProps> = ({ registration,
             <div className="flex items-start">
               <Calendar className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <p className="text-sm text-gray-500">Age</p>
-                <p className="font-medium">{registration.age || 'Not specified'}</p>
+                <p className="text-sm text-gray-500">Date of Birth</p>
+                <p className="font-medium">{registration.dateOfBirth ? formatDate(registration.dateOfBirth) : 'Not specified'}</p>
               </div>
             </div>
             

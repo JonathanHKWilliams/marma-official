@@ -7,7 +7,7 @@ import SuccessMessage from '../ui/SuccessMessage';
 
 interface RegistrationData {
   fullName: string;
-  age: string;
+  dateOfBirth: string;
   email: string;
   phone: string;
   country: string;
@@ -39,7 +39,7 @@ const RegistrationForm: React.FC = () => {
   
   const [formData, setFormData] = useState<RegistrationData>({
     fullName: '',
-    age: '',
+    dateOfBirth: '',
     email: '',
     phone: '',
     country: '',
@@ -155,7 +155,7 @@ const RegistrationForm: React.FC = () => {
   const resetForm = () => {
     setFormData({
       fullName: '',
-      age: '',
+      dateOfBirth: '',
       email: '',
       phone: '',
       country: '',
@@ -487,13 +487,12 @@ const RegistrationForm: React.FC = () => {
                 placeholder="Enter your full name"
               />
               <FormField
-                label="Age"
-                type="number"
-                value={formData.age}
-                onChange={(value) => handleInputChange('age', value)}
-                placeholder="Enter your age"
-                min="16"
-                max="100"
+                label="Date of Birth *"
+                type="date"
+                value={formData.dateOfBirth}
+                onChange={(value) => handleInputChange('dateOfBirth', value)}
+                placeholder="Select your date of birth"
+                max={new Date().toISOString().split('T')[0]}
               />
             </div>
 

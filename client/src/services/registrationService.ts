@@ -1,6 +1,10 @@
+// Import services
+import { sendRegistrationConfirmation, sendStatusNotification, notifyAdminOfNewRegistration } from './emailService';
+import { loadData, saveData, updateItem, addItem, STORAGE_KEYS } from './storageService';
+
 interface RegistrationData {
   fullName: string;
-  age: string;
+  dateOfBirth: string;
   email: string;
   phone: string;
   country: string;
@@ -24,8 +28,8 @@ interface RegistrationData {
   attestedBy?: string;
 }
 
-// Mock data for development - replace with actual Database calls
-let mockRegistrations: any[] = [
+// Initial sample data for development - will be replaced with actual data from storage
+const initialRegistrations: any[] = [
   {
     id: '1',
     fullName: 'Rev. Peter Flourish',
@@ -67,12 +71,13 @@ let mockRegistrations: any[] = [
 ];
 
 // Generate a regional code (ML001, ML002, etc.)
-const generateRegionalCode = (): string => {
+const generateRegionalCode = async (): Promise<string> => {
   // ML = Mano River
   const prefix = 'ML';
   
   // Count existing registrations to determine the next number
-  const existingCount = mockRegistrations.length;
+  const registrations = await getRegistrations();
+  const existingCount = registrations.length;
   // Format with leading zeros (001, 002, etc.)
   const formattedNumber = String(existingCount + 1).padStart(3, '0');
   
@@ -80,7 +85,7 @@ const generateRegionalCode = (): string => {
 };
 
 // Generate country-specific identification number (LIB001, SLE001, etc.)
-const generateIdentificationNumber = (country: string): string => {
+const generateIdentificationNumber = async (country: string): Promise<string> => {
   // Map of country to country code
   const countryCodes: Record<string, string> = {
     'Liberia': 'LIB',
@@ -95,7 +100,8 @@ const generateIdentificationNumber = (country: string): string => {
   const countryCode = countryCodes[country] || 'INT';
   
   // Count existing registrations from this country
-  const countryRegistrations = mockRegistrations.filter(reg => reg.country === country);
+  const registrations = await getRegistrations();
+  const countryRegistrations = registrations.filter(reg => reg.country === country);
   const countryCount = countryRegistrations.length;
   
   // Format with leading zeros (001, 002, etc.)
@@ -104,16 +110,49 @@ const generateIdentificationNumber = (country: string): string => {
   return `${countryCode}${formattedNumber}`;
 };
 
+// Validate email format
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+  return emailRegex.test(email);
+};
+
+// Validate phone number format
+const validatePhone = (phone: string): boolean => {
+  // Allow for international format with country code
+  // Examples: +231-555-0123, +1 (555) 123-4567, etc.
+  const phoneRegex = /^\+?[0-9]{1,4}[-.\s]?\(?[0-9]{1,4}\)?[-.\s]?[0-9]{1,4}[-.\s]?[0-9]{1,9}$/;
+  return phoneRegex.test(phone);
+};
+
 export const createRegistration = async (data: RegistrationData): Promise<void> => {
+  // Validate email format
+  if (!validateEmail(data.email)) {
+    throw new Error('Please enter a valid email address');
+  }
+
+  // Validate phone format
+  if (!validatePhone(data.phone)) {
+    throw new Error('Please enter a valid phone number with country code (e.g., +231-555-0123)');
+  }
+
+  // Get existing registrations
+  const registrations = await getRegistrations();
+
   // Check for duplicate email
-  const existingRegistration = mockRegistrations.find(reg => reg.email === data.email);
-  if (existingRegistration) {
+  const existingEmailRegistration = registrations.find(reg => reg.email === data.email);
+  if (existingEmailRegistration) {
     throw new Error('A registration with this email already exists');
   }
 
+  // Check for duplicate phone number
+  const existingPhoneRegistration = registrations.find(reg => reg.phone === data.phone);
+  if (existingPhoneRegistration) {
+    throw new Error('A registration with this phone number already exists');
+  }
+
   // Generate codes
-  const regionalCode = generateRegionalCode();
-  const identificationNumber = generateIdentificationNumber(data.country);
+  const regionalCode = await generateRegionalCode();
+  const identificationNumber = await generateIdentificationNumber(data.country);
 
   // Set default values for authorization fields if not provided
   const signedBy = data.signedBy || 'Pending';
@@ -133,16 +172,29 @@ export const createRegistration = async (data: RegistrationData): Promise<void> 
     createdAt: new Date().toISOString()
   };
 
-  mockRegistrations.push(newRegistration);
+  // Add to storage
+  await addItem(STORAGE_KEYS.REGISTRATIONS, newRegistration);
   
-  // Mock email sending
-  await sendConfirmationEmail(data.email, data.fullName);
+  // Update local storage with all registrations
+  const updatedRegistrations = [...registrations, newRegistration];
+  await saveData(STORAGE_KEYS.REGISTRATIONS, updatedRegistrations);
+  
+  try {
+    // Send confirmation email to the registrant
+    await sendConfirmationEmail(data.email, data.fullName, newRegistration);
+    
+    // Notify admin about the new registration
+    await notifyAdminOfNewRegistration(newRegistration);
+  } catch (error) {
+    console.error('Error sending emails:', error);
+    // Continue with registration process even if email sending fails
+    // In a production environment, you might want to log this to a monitoring service
+  }
 };
 
 export const getRegistrations = async (): Promise<any[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return mockRegistrations;
+  // Load registrations from storage
+  return await loadData(STORAGE_KEYS.REGISTRATIONS, initialRegistrations);
 };
 
 export const updateRegistrationStatus = async (
@@ -150,14 +202,34 @@ export const updateRegistrationStatus = async (
   status: 'approved' | 'declined', 
   message: string
 ): Promise<void> => {
-  const registration = mockRegistrations.find(reg => reg.id === id);
+  // Get current registrations
+  const registrations = await getRegistrations();
+  const registration = registrations.find(reg => reg.id === id);
+  
   if (registration) {
-    registration.status = status;
-    registration.statusMessage = message;
-    registration.statusUpdatedAt = new Date().toISOString();
+    // Update registration status
+    const updates = {
+      status,
+      statusMessage: message,
+      statusUpdatedAt: new Date().toISOString()
+    };
     
-    // Mock email sending
-    await sendStatusEmail(registration.email, registration.fullName, status, message);
+    // Update in storage
+    await updateItem<any>(STORAGE_KEYS.REGISTRATIONS, id, updates);
+    
+    // Update local object for email sending
+    Object.assign(registration, updates);
+    
+    try {
+      // Send status update email to the registrant
+      await sendStatusEmail(registration.email, registration.fullName, status, message, registration);
+    } catch (error) {
+      console.error(`Error sending ${status} email:`, error);
+      // Continue with status update even if email sending fails
+      // In a production environment, you might want to log this to a monitoring service
+    }
+  } else {
+    throw new Error(`Registration with ID ${id} not found`);
   }
 };
 
@@ -180,55 +252,26 @@ export const exportRegistrations = async (registrations: any[]): Promise<void> =
   window.URL.revokeObjectURL(url);
 };
 
-const sendConfirmationEmail = async (email: string, fullName: string): Promise<void> => {
-  // Mock email sending - replace with actual email service
-  console.log(`Sending confirmation email to ${email} for ${fullName}`);
-  
-  // In a real implementation, you would include a template with registration details
-  const emailTemplate = `
-    Dear ${fullName},
-    
-    Thank you for registering with Marma. Your registration has been received and is pending review.
-    
-    You will receive another email once your registration has been processed.
-    
-    Best regards,
-    The Marma Team
-  `;
-  
-  console.log('Email content:', emailTemplate);
-  await new Promise(resolve => setTimeout(resolve, 1000));
+const sendConfirmationEmail = async (email: string, fullName: string, registrationData: any): Promise<void> => {
+  try {
+    await sendRegistrationConfirmation(email, fullName, registrationData);
+  } catch (error) {
+    console.error('Error in sendConfirmationEmail:', error);
+    throw error;
+  }
 };
 
 const sendStatusEmail = async (
   email: string, 
   fullName: string, 
-  status: string, 
-  message: string
+  status: 'approved' | 'declined', 
+  message: string,
+  registrationData: any
 ): Promise<void> => {
-  // Mock email sending - replace with actual email service
-  console.log(`Sending ${status} email to ${email} for ${fullName}: ${message}`);
-  
-  // In a real implementation, you would include a template with registration details
-  const statusText = status === 'approved' ? 'approved' : 'declined';
-  const nextStepsText = status === 'approved' 
-    ? 'You will receive your official membership details shortly.'
-    : 'Please review the feedback below and consider reapplying if appropriate.';
-  
-  const emailTemplate = `
-    Dear ${fullName},
-    
-    Your Marma registration has been ${statusText}.
-    
-    ${nextStepsText}
-    
-    Message from the admin:
-    ${message}
-    
-    Best regards,
-    The Marma Team
-  `;
-  
-  console.log('Email content:', emailTemplate);
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    await sendStatusNotification(email, fullName, status, message, registrationData);
+  } catch (error) {
+    console.error(`Error in sendStatusEmail:`, error);
+    throw error;
+  }
 };
