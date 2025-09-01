@@ -16,7 +16,7 @@ const HomePage: React.FC = () => {
       <Header />
       <main>
         {/* Hero Section */}
-        <section className="relative py-20 overflow-hidden">
+        <section className="h-[40rem] relative flex items-center justify-center py-20 overflow-hidden">
           <div className="absolute inset-0 bg-blue-900/10 z-0"></div>
           <div 
             className="absolute inset-0 bg-overlay-200 z-0 bg-cover bg-center"
@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                Mano River Union <br /> Christian Fellowship
+                Mano River Basin<br /> Christian Fellowship
               </h1>
               <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-10">
               </p>
@@ -52,17 +52,17 @@ const HomePage: React.FC = () => {
             
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-              <h3 className="text-2xl font-semibold text-black mb-4">Our Mission Statement</h3>
+              <h3 className="text-xl font-bold text-black mb-4">Our Mission Statement</h3>
                 <p className="text-gray-700 leading-relaxed mb-6">
                   To restore our last heritage across border lines.
                 </p>
 
-                <h3 className="text-2xl font-semibold text-black mb-4">Our Goal</h3>
+                <h3 className="text-xl font-bold text-black mb-4">Our Goal</h3>
                 <p className="text-gray-700 leading-relaxed mb-6">
                 To engage and strengthen the capacity of those on the walls of our nation and reprogram our social institution for divine intervention and spiritual inoculation.
                 </p>
                 
-                <h3 className="text-2xl font-semibold text-black mb-4">Vision</h3>
+                <h3 className="text-xl font-bold text-black mb-4">Vision</h3>
                 <p className="text-gray-700 leading-relaxed">
                 That the prophetic heritage of our nations will realign with heaven’s blueprint for earthly relevance.
                 Therefore, we engage prayerfully in dialogue with minded leaders and strategically position ourselves as change agents.
@@ -71,7 +71,7 @@ const HomePage: React.FC = () => {
               <div className="relative">
                 <div className="rounded-2xl overflow-hidden shadow-xl">
                   <img 
-                    src="https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" 
+                    src="https://images.squarespace-cdn.com/content/v1/5c421a36266c072621f38024/1547852520235-GZAFLAL4FYSPD5XY3LGH/tmpc-newyear-0340.jpg?format=2500w" 
                     alt="Christian Fellowship" 
                     className="w-full h-80 object-cover"
                   />
@@ -86,18 +86,18 @@ const HomePage: React.FC = () => {
         <section className="py-16 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold text-blue-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>Our Core Values</h2>
+              <h2 className="text-2xl font-bold text-blue-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>Our Core Values</h2>
               <div className="h-1 w-20 bg-yellow-400 mx-auto"></div>
             </div>
-            <p className="text-gray-700 leading-relaxed mb-6">
-            <ul className="list-disc list-inside">
+            {/* <p className="text-gray-700 leading-relaxed mb-6">
+            <ul className="list-disc list-inside" style={{ fontFamily: 'Poppins, sans-serif' }}>
               <li>Missions awareness and engagements.</li>
               <li>Leadership Developmental at all levels.</li>
               <li>Mutual Intercessory Consultation.</li>
               <li>Socio economic empowerment.</li>
               <li>Engaging women and girls to arise and uphold values.</li>
             </ul>
-            </p>
+            </p> */}
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
               <div className="bg-red-200 p-6 rounded-xl hover:shadow-lg transition-shadow duration-300">
@@ -105,7 +105,7 @@ const HomePage: React.FC = () => {
                   <Users className="h-7 w-7 text-blue-700" />
                 </div>
                 <h3 className="text-xl font-bold text-black mb-2">Unity</h3>
-                <p className="text-gray-600">
+                <p className="text-gray-900 opacity-90">
                   Fostering collaboration and harmony among Christian leaders across national boundaries.
                 </p>
               </div>
@@ -144,10 +144,10 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* Call to Action */}
-        <section className="py-16 bg-gray-200 text-black">
+        <section className="py-16 bg-gray-200 text-blue">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Poppins, sans-serif' }}>Join Our Fellowship Today</h2>
-            <p className="text-lg mb-8 opacity-90">
+            <p className="text-lg mb-8 opacity-90 text-gray">
               Be part of a transformative movement bringing together Christian leaders for fellowship, growth, and regional collaboration.
             </p>
             <button 

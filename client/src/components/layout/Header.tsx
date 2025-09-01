@@ -25,9 +25,9 @@ const Header: React.FC = () => {
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-6">
-            <div className="flex items-center space-x-2 text-blue-900">
+            <div className="flex items-center space-x-2 text-black">
               {/* <Users className="h-5 w-5" /> */}
-              <span className="font-medium">Membership Registration Form </span>
+              <span className="font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>Membership Registration Form </span>
             </div>
           </div>
         </div>
