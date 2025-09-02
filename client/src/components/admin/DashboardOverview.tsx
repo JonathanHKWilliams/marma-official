@@ -1,11 +1,21 @@
+/**
+ * Dashboard Overview Component
+ * Displays comprehensive dashboard analytics with Redux integration and fallback states
+ */
+
 import React, { useMemo } from 'react';
-import { Users, CheckCircle, XCircle, Clock, TrendingUp, MapPin, Calendar } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Clock, TrendingUp, MapPin, Calendar, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { useAppSelector } from '../../Store/hooks';
 
 interface DashboardOverviewProps {
   registrations: any[];
+  isLoading?: boolean;
+  error?: string;
 }
 
-const DashboardOverview: React.FC<DashboardOverviewProps> = ({ registrations }) => {
+const DashboardOverview: React.FC<DashboardOverviewProps> = ({ registrations, isLoading = false, error }) => {
+  // Get UI state from Redux
+  const isOnline = useAppSelector((state) => (state as any).ui?.isOnline ?? true);
   // Calculate statistics
   const totalRegistrations = registrations.length;
   const pendingRegistrations = registrations.filter(reg => !reg.status || reg.status === 'pending').length;
@@ -58,11 +68,74 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ registrations }) 
     }));
   }, [registrations]);
 
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">Welcome to your Dashboard</h2>
+          <div className="flex items-center space-x-2 mt-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <p className="text-red-600">Unable to load dashboard data</p>
+          </div>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+            <div>
+              <h3 className="text-lg font-medium text-red-800">Data Loading Error</h3>
+              <p className="text-red-600 mt-1">{error}</p>
+              <p className="text-sm text-red-500 mt-2">Please refresh the page or contact support if the issue persists.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Offline state
+  if (!isOnline) {
+    return (
+      <div className="space-y-8">
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">Welcome to your Dashboard</h2>
+          <div className="flex items-center space-x-2 mt-2">
+            <WifiOff className="h-5 w-5 text-gray-500" />
+            <p className="text-gray-600">You're currently offline - showing cached data</p>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+          <div className="flex items-center space-x-3">
+            <WifiOff className="h-8 w-8 text-gray-500" />
+            <div>
+              <h3 className="text-lg font-medium text-gray-700">Offline Mode</h3>
+              <p className="text-gray-600 mt-1">Connect to the internet to see the latest data and analytics.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-gray-800">Welcome to your Dashboard</h2>
-        <p className="text-gray-600">Here's an overview of your registration data and analytics</p>
+        <div className="flex items-center space-x-2 mt-2">
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <p className="text-gray-600">Loading dashboard data...</p>
+            </>
+          ) : (
+            <>
+              <Wifi className="h-5 w-5 text-green-500" />
+              <p className="text-gray-600">Here's an overview of your registration data and analytics</p>
+            </>
+          )}
+        </div>
       </div>
       
       {/* Stats Cards */}

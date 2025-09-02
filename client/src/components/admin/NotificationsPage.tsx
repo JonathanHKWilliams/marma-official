@@ -1,71 +1,23 @@
+/**
+ * Notifications Page Component
+ * Displays system notifications with Redux integration and fallback states
+ */
+
 import React from 'react';
 import { Bell, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useAppSelector, useNotifications } from '../../Store/hooks';
 
 interface NotificationsPageProps {
-  registrations: any[];
+  isLoading?: boolean;
+  error?: string;
 }
 
-const NotificationsPage: React.FC<NotificationsPageProps> = ({ registrations }) => {
-  // Generate mock notifications based on registrations
-  const generateNotifications = () => {
-    const notifications = [];
-    
-    // Recent registrations (last 7 days)
-    const recentRegistrations = registrations.filter(reg => {
-      const regDate = new Date(reg.createdAt);
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return regDate >= sevenDaysAgo;
-    });
-    
-    // Add new registration notifications
-    recentRegistrations.forEach(reg => {
-      notifications.push({
-        id: `new-${reg._id || Math.random().toString(36).substr(2, 9)}`,
-        type: 'new',
-        title: 'New Registration',
-        message: `${reg.fullName} has submitted a new registration form.`,
-        date: new Date(reg.createdAt),
-        read: false
-      });
-    });
-    
-    // Add pending approval reminders for registrations older than 3 days
-    const pendingOldRegistrations = registrations.filter(reg => {
-      const regDate = new Date(reg.createdAt);
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-      return (!reg.status || reg.status === 'pending') && regDate <= threeDaysAgo;
-    });
-    
-    pendingOldRegistrations.forEach(reg => {
-      notifications.push({
-        id: `pending-${reg._id || Math.random().toString(36).substr(2, 9)}`,
-        type: 'reminder',
-        title: 'Pending Approval',
-        message: `${reg.fullName}'s registration has been pending for more than 3 days.`,
-        date: new Date(),
-        read: false
-      });
-    });
-    
-    // Add system notifications
-    if (registrations.length > 0) {
-      notifications.push({
-        id: 'system-1',
-        type: 'system',
-        title: 'System Update',
-        message: 'The registration system has been updated with new security features.',
-        date: new Date(),
-        read: true
-      });
-    }
-    
-    // Sort notifications by date (newest first)
-    return notifications.sort((a, b) => b.date.getTime() - a.date.getTime());
-  };
-  
-  const notifications = generateNotifications();
+const NotificationsPage: React.FC<NotificationsPageProps> = ({ isLoading = false, error }) => {
+  const { notifications } = useNotifications();
+  const isOnline = useAppSelector((state) => (state as any).ui?.isOnline ?? true);
+
+  // Use actual notifications from Redux store
+  const displayNotifications = notifications || [];
   
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -111,7 +63,24 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ registrations }) 
         </div>
       </div>
       
-      {notifications.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading notifications...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-white rounded-xl border border-red-200 p-10 text-center">
+          <AlertCircle className="h-12 w-12 text-red-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-red-700 mb-1">Error Loading Notifications</h3>
+          <p className="text-red-500">{error}</p>
+        </div>
+      ) : !isOnline ? (
+        <div className="bg-white rounded-xl border border-yellow-200 p-10 text-center">
+          <AlertCircle className="h-12 w-12 text-yellow-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-yellow-700 mb-1">No Internet Connection</h3>
+          <p className="text-yellow-600">Please check your connection to view notifications.</p>
+        </div>
+      ) : displayNotifications.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
           <Bell className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-700 mb-1">No notifications</h3>
@@ -119,10 +88,10 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ registrations }) 
         </div>
       ) : (
         <div className="space-y-4">
-          {notifications.map((notification) => (
+          {displayNotifications.map((notification) => (
             <div 
               key={notification.id}
-              className={`p-4 border rounded-lg ${getNotificationClass(notification.type)} ${!notification.read ? 'border-l-4' : ''}`}
+              className={`p-4 border rounded-lg ${getNotificationClass(notification.type)} ${!notification.isRead ? 'border-l-4' : ''}`}
             >
               <div className="flex items-start">
                 <div className="flex-shrink-0 mt-0.5">
@@ -130,14 +99,14 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ registrations }) 
                 </div>
                 <div className="ml-3 flex-1">
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                    <h3 className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
                       {notification.title}
                     </h3>
                     <p className="text-xs text-gray-500">
-                      {notification.date.toLocaleDateString()}
+                      {new Date(notification.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <p className={`text-sm ${!notification.read ? 'text-gray-700' : 'text-gray-500'} mt-1`}>
+                  <p className={`text-sm ${!notification.isRead ? 'text-gray-700' : 'text-gray-500'} mt-1`}>
                     {notification.message}
                   </p>
                 </div>

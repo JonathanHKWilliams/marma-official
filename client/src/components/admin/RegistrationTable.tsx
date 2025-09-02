@@ -1,9 +1,15 @@
+/**
+ * Registration Table Component
+ * Displays and manages registration data with Redux integration
+ */
+
 import React, { useState } from 'react';
-import { Eye, CheckCircle, XCircle, Clock, Camera, GraduationCap, FileText, Download, UserCircle } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Clock, Camera, GraduationCap, FileText, Download, UserCircle, RefreshCw } from 'lucide-react';
 import PasswordAuthModal from './PasswordAuthModal';
 import MemberDetailSidebar from './MemberDetailSidebar';
 import RegistrationModal from './RegistrationModal';
-import { updateRegistrationStatus } from '../../services/registrationService';
+import { useUpdateRegistrationMutation, useExportRegistrationsMutation } from '../../Store/Api/registrationApi';
+import { useNotifications, useAppSelector } from '../../Store/hooks';
 
 interface RegistrationTableProps {
   registrations: any[];
@@ -16,6 +22,14 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
   const [showExportPasswordModal, setShowExportPasswordModal] = useState(false);
   const [sidebarRegistration, setSidebarRegistration] = useState(null);
   const itemsPerPage = 10;
+
+  // Redux hooks
+  const { addNotification } = useNotifications();
+  const isOnline = useAppSelector((state) => state.ui?.isOnline ?? true);
+  
+  // RTK Query mutations
+  const [updateRegistration, { isLoading: isUpdating }] = useUpdateRegistrationMutation();
+  const [exportRegistrations, { isLoading: isExporting }] = useExportRegistrationsMutation();
 
   const totalPages = Math.ceil(registrations.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -48,60 +62,85 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
   };
 
   const handleStatusUpdate = async (id: string, status: 'approved' | 'declined', message: string) => {
+    if (!isOnline) {
+      addNotification({
+        type: 'error',
+        title: 'No Internet Connection',
+        message: 'Please check your connection and try again.',
+      });
+      return;
+    }
+
     try {
-      await updateRegistrationStatus(id, status, message);
+      await updateRegistration({
+        id,
+        status, 
+        statusMessage: message
+      }).unwrap();
+      
+      addNotification({
+        type: 'success',
+        title: 'Status Updated',
+        message: `Registration ${status} successfully.`,
+      });
+      
       onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating status:', error);
+      addNotification({
+        type: 'error',
+        title: 'Update Failed',
+        message: error?.data?.message || 'Failed to update registration status.',
+      });
     }
   };
   
-  const exportToCSV = () => {
-    // Convert registrations to CSV format
-    const headers = [
-      'Full Name', 'Date of Birth', 'Email', 'Phone', 'Country', 'Address',
-      'Education Level', 'Church/Organization', 'Position',
-      'Recommendation Name', 'Recommendation Contact', 'Recommendation Relationship',
-      'Recommendation Church', 'Membership Purpose', 'Marital Status', 'Gender',
-      'Regional Code', 'Identification Number', 'Status', 'Created At'
-    ];
-    
-    const csvRows = [
-      headers.join(','),
-      ...registrations.map(reg => [
-        `"${reg.fullName || ''}"`,
-        `"${reg.dateOfBirth || ''}"`,
-        `"${reg.email || ''}"`,
-        `"${reg.phone || ''}"`,
-        `"${reg.country || ''}"`,
-        `"${reg.address || ''}"`,
-        `"${reg.educationLevel || ''}"`,
-        `"${reg.churchOrganization || ''}"`,
-        `"${reg.position || ''}"`,
-        `"${reg.recommendationName || ''}"`,
-        `"${reg.recommendationContact || ''}"`,
-        `"${reg.recommendationRelationship || ''}"`,
-        `"${reg.recommendationChurch || ''}"`,
-        `"${reg.membershipPurpose || ''}"`,
-        `"${reg.maritalStatus || ''}"`,
-        `"${reg.gender || ''}"`,
-        `"${reg.regionalCode || ''}"`,
-        `"${reg.identificationNumber || ''}"`,
-        `"${reg.status || 'pending'}"`,
-        `"${new Date(reg.createdAt).toLocaleDateString()}"`
-      ].join(','))
-    ].join('\n');
-    
-    // Create a blob and download
-    const blob = new Blob([csvRows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `registrations-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExport = async () => {
+    if (!isOnline) {
+      addNotification({
+        type: 'error',
+        title: 'No Internet Connection',
+        message: 'Please check your connection and try again.',
+      });
+      return;
+    }
+
+    try {
+      const result = await exportRegistrations({ format: 'csv' }).unwrap();
+      
+      // Fetch the actual file data from the download URL
+      const response = await fetch(result.data.downloadUrl);
+      if (!response.ok) {
+        throw new Error('Failed to download export file');
+      }
+      
+      const csvData = await response.text();
+      
+      // Create blob and download
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', result.data.filename || `registrations-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      addNotification({
+        type: 'success',
+        title: 'Export Complete',
+        message: 'Registrations exported successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error exporting registrations:', error);
+      addNotification({
+        type: 'error',
+        title: 'Export Failed',
+        message: error?.data?.message || 'Failed to export registrations.',
+      });
+    }
   };
 
   return (
@@ -237,10 +276,15 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowExportPasswordModal(true)}
-            className="inline-flex items-center px-3 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors duration-200"
+            disabled={isExporting || !isOnline}
+            className="inline-flex items-center px-3 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="h-4 w-4 mr-1" />
-            Export to CSV
+            {isExporting ? (
+              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-1" />
+            )}
+            {isExporting ? 'Exporting...' : 'Export to CSV'}
           </button>
           <div className="text-sm text-gray-700 ml-4">
             Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, registrations.length)} of {registrations.length} registrations
@@ -283,7 +327,7 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({ registrations, on
           onClose={() => setShowExportPasswordModal(false)}
           onConfirm={() => {
             setShowExportPasswordModal(false);
-            exportToCSV();
+            handleExport();
           }}
           title="Confirm CSV Export"
           description="Please enter your admin password to export all registration data to CSV."

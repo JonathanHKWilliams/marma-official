@@ -1,49 +1,43 @@
-import React, { useState, useRef } from 'react';
+/**
+ * Registration Form Component
+ * Multi-step registration form for MARMA membership applications
+ * Uses Redux for state management and RTK Query for API calls
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
 import { UserPlus, Mail, Phone, MapPin, GraduationCap, Church, User, FileText, CheckCircle, Camera, ArrowRight, ArrowLeft, Upload } from 'lucide-react';
 import FormField from '../ui/FormField';
 import CountrySelect from '../ui/CountrySelect';
-import { createRegistration } from '../../services/registrationService';
 import SuccessMessage from '../ui/SuccessMessage';
-
-interface RegistrationData {
-  fullName: string;
-  dateOfBirth: string;
-  email: string;
-  phone: string;
-  country: string;
-  address: string;
-  educationLevel: string;
-  churchOrganization: string;
-  position: string;
-  recommendationName: string;
-  recommendationContact: string;
-  recommendationRelationship: string;
-  recommendationChurch: string;
-  membershipPurpose: string;
-  // New fields
-  maritalStatus: string;
-  gender: string;
-  photo: string;
-  signedBy: string;
-  approvedBy: string;
-  attestedBy: string;
-  regionalCode?: string; // Generated on server
-  identificationNumber?: string; // Generated on server
-}
+import { useCreateRegistrationMutation, useValidateRegistrationMutation, useCheckDuplicatesQuery } from '../../Store/Api/registrationApi';
+import { useAppSelector, useNotifications } from '../../Store/hooks';
+import type { CreateRegistrationRequest, RegistrationData } from '../../Store/Interface';
 
 const RegistrationForm: React.FC = () => {
-  // Add step management
+  // Step management
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [formData, setFormData] = useState<RegistrationData>({
+  // Redux state and hooks
+  const isOnline = useAppSelector((state) => state.ui.isOnline);
+  const { addNotification } = useNotifications();
+  
+  // RTK Query hooks
+  const [createRegistration, { isLoading: isSubmitting, error: submitError }] = useCreateRegistrationMutation();
+  const [validateRegistration] = useValidateRegistrationMutation();
+  
+  // Form state
+  const [formData, setFormData] = useState<CreateRegistrationRequest>({
     fullName: '',
     dateOfBirth: '',
     email: '',
     phone: '',
     country: '',
     address: '',
+    maritalStatus: '',
+    gender: '',
+    photo: '',
     educationLevel: '',
     churchOrganization: '',
     position: '',
@@ -52,18 +46,41 @@ const RegistrationForm: React.FC = () => {
     recommendationRelationship: '',
     recommendationChurch: '',
     membershipPurpose: '',
-    // New fields
-    maritalStatus: '',
-    gender: '',
-    photo: '',
     signedBy: 'Pst Peter Flourish', // Default values as requested
     approvedBy: 'Pst Peter Flourish',
     attestedBy: 'Peter Williams',
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [debouncedEmail, setDebouncedEmail] = useState('');
+  const [debouncedPhone, setDebouncedPhone] = useState('');
+
+  // Debounce email and phone inputs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedEmail(formData.email.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.email]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPhone(formData.phone.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.phone]);
+
+  // Check for duplicates when debounced email or phone changes
+  const { data: duplicateCheck } = useCheckDuplicatesQuery(
+    { 
+      email: debouncedEmail || undefined, 
+      phone: debouncedPhone || undefined 
+    },
+    { 
+      skip: !debouncedEmail && !debouncedPhone
+    }
+  );
   
   // Step navigation functions
   const nextStep = () => {
@@ -246,6 +263,27 @@ const RegistrationForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check internet connection
+    if (!isOnline) {
+      addNotification({
+        type: 'error',
+        title: 'No Internet Connection',
+        message: 'Please check your internet connection and try again.',
+      });
+      return;
+    }
+
+    // Check for duplicates before proceeding
+    if (duplicateCheck?.success && duplicateCheck.data.hasDuplicates) {
+      const duplicateFields = duplicateCheck.data.duplicateFields.join(', ');
+      addNotification({
+        type: 'error',
+        title: 'Duplicate Registration',
+        message: `A registration with this ${duplicateFields} already exists.`,
+      });
+      return;
+    }
+    
     if (!validateCurrentStep()) {
       return;
     }
@@ -258,21 +296,53 @@ const RegistrationForm: React.FC = () => {
 
     // Validate all fields before final submission
     if (!validateAllFields()) {
+      // Show notification for validation errors
+      addNotification({
+        type: 'error',
+        title: 'Form Validation Error',
+        message: 'Please fill in all required fields before submitting.',
+      });
       return;
     }
 
-    setIsSubmitting(true);
-    
     try {
-      await createRegistration(formData);
-      // Set success state only - don't reset form yet
-      setShowSuccess(true);
-      // Form will be reset when user clicks to register another member
-    } catch (error) {
+      // Validate registration data with server before final submission
+      const validationResult = await validateRegistration(formData).unwrap();
+      
+      if (validationResult.success && !validationResult.data.isValid) {
+        setErrors({ submit: validationResult.data.errors.join(', ') });
+        addNotification({
+          type: 'error',
+          title: 'Validation Failed',
+          message: 'Please correct the errors and try again.',
+        });
+        return;
+      }
+
+      // Submit the registration
+      const result = await createRegistration(formData).unwrap();
+      
+      if (result.success) {
+        setShowSuccess(true);
+        addNotification({
+          type: 'success',
+          title: 'Registration Successful',
+          message: 'Your membership application has been submitted successfully!',
+        });
+      } else {
+        throw new Error(result.message || 'Registration failed');
+      }
+      
+    } catch (error: any) {
       console.error('Registration error:', error);
-      setErrors({ submit: 'Registration failed. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
+      const errorMessage = error.data?.message || error.message || 'Registration failed. Please try again.';
+      setErrors({ submit: errorMessage });
+      
+      addNotification({
+        type: 'error',
+        title: 'Registration Failed',
+        message: errorMessage,
+      });
     }
   };
 
@@ -709,9 +779,11 @@ const RegistrationForm: React.FC = () => {
           </div>
         )}
 
-        {errors.submit && (
+        {(errors.submit || submitError) && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-red-700 text-sm">{errors.submit}</p>
+            <p className="text-red-700 text-sm">
+              {errors.submit || (submitError as any)?.data?.message || 'An error occurred during submission'}
+            </p>
           </div>
         )}
 

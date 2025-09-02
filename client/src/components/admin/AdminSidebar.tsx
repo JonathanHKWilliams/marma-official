@@ -1,6 +1,12 @@
+/**
+ * Admin Sidebar Component
+ * Navigation sidebar for admin dashboard with Redux integration
+ */
+
 import React from 'react';
 import { Users, Settings, LogOut, Bell, Home } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, useAppDispatch } from '../../Store/hooks';
+import { setActiveTab } from '../../Store/Slices/uiSlice';
 import { useNavigate } from 'react-router-dom';
 
 interface AdminSidebarProps {
@@ -11,16 +17,23 @@ interface AdminSidebarProps {
     pending: number;
     approved: number;
     declined: number;
+    underReview?: number;
   };
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onTabChange, registrationStats }) => {
   const { logout } = useAuth();
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
+  };
+
+  const handleTabChange = (tab: string) => {
+    dispatch(setActiveTab(tab));
+    onTabChange(tab);
   };
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
@@ -43,7 +56,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onTabChange, reg
           {navItems.map((item) => (
             <li key={item.id}>
               <button
-                onClick={() => onTabChange(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === item.id
                     ? 'bg-blue-50 text-blue-700'

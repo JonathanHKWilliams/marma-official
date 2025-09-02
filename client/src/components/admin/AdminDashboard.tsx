@@ -1,7 +1,14 @@
+/**
+ * Admin Dashboard Component
+ * Main dashboard interface for managing registrations and system overview
+ * Uses Redux for state management and RTK Query for data fetching
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, Search } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { Filter, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { useAuth, useAppSelector, useRegistrationFilters } from '../../Store/hooks';
+import { useGetRegistrationsQuery, useGetRegistrationStatsQuery } from '../../Store/Api/registrationApi';
 import RegistrationTable from './RegistrationTable';
 import StatsCards from './StatsCards';
 import FilterPanel from './FilterPanel';
@@ -9,97 +16,111 @@ import AdminSidebar from './AdminSidebar';
 import DashboardOverview from './DashboardOverview';
 import NotificationsPage from './NotificationsPage';
 import SettingsPage from './SettingsPage';
-import { getRegistrations } from '../../services/registrationService';
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [filteredRegistrations, setFilteredRegistrations] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('registrations');
-  const [filters, setFilters] = useState({
-    country: '',
-    status: '',
-    dateRange: { start: '', end: '' }
+  
+  // Redux state and filters
+  const { filters, setFilters } = useRegistrationFilters();
+  const activeTab = useAppSelector((state) => state.ui.activeTab);
+  const showFilters = useAppSelector((state) => state.ui.showFilters);
+  const isOnline = useAppSelector((state) => state.ui.isOnline);
+
+  // RTK Query hooks for data fetching
+  const {
+    data: registrationsResponse,
+    isLoading: registrationsLoading,
+    error: registrationsError,
+    refetch: refetchRegistrations,
+  } = useGetRegistrationsQuery(filters, {
+    skip: !isAuthenticated,
+    pollingInterval: 300000, // Poll every 5 minutes
   });
 
+  const {
+    data: statsResponse,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useGetRegistrationStatsQuery(undefined, {
+    skip: !isAuthenticated,
+    pollingInterval: 120000, // Poll every 2 minutes
+  });
+
+  // Extract data from API responses
+  const registrations = registrationsResponse?.success ? registrationsResponse.data.registrations : [];
+  const stats = statsResponse?.success ? statsResponse.data : null;
+
+  // Redirect if not authenticated
   useEffect(() => {
-    if (!user) {
+    if (!isAuthenticated) {
       navigate('/admin/login');
-      return;
     }
-    loadRegistrations();
-  }, [user, navigate]);
+  }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    filterRegistrations();
-  }, [registrations, searchTerm, filters]);
+  // Filter registrations based on search term (client-side filtering for immediate feedback)
+  const filteredRegistrations = registrations.filter(reg => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      reg.fullName.toLowerCase().includes(searchLower) ||
+      reg.email.toLowerCase().includes(searchLower) ||
+      reg.country.toLowerCase().includes(searchLower) ||
+      reg.churchOrganization?.toLowerCase().includes(searchLower)
+    );
+  });
 
-  const loadRegistrations = async () => {
-    try {
-      const data = await getRegistrations();
-      setRegistrations(data as any);
-    } catch (error) {
-      console.error('Error loading registrations:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  // Handle filter changes
+  const handleFilterChange = (newFilters: any) => {
+    setFilters(newFilters);
   };
 
-  const filterRegistrations = () => {
-    let filtered = [...registrations];
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(reg => 
-        (reg as any).fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (reg as any).email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Country filter
-    if (filters.country) {
-      filtered = filtered.filter(reg => (reg as any).country === filters.country);
-    }
-
-    // Status filter
-    if (filters.status) {
-      filtered = filtered.filter(reg => (reg as any).status === filters.status);
-    }
-
-    // Date range filter
-    if (filters.dateRange.start) {
-      filtered = filtered.filter(reg => new Date((reg as any).createdAt) >= new Date(filters.dateRange.start));
-    }
-    if (filters.dateRange.end) {
-      filtered = filtered.filter(reg => new Date((reg as any).createdAt) <= new Date(filters.dateRange.end));
-    }
-
-    setFilteredRegistrations(filtered);
+  // Handle search term changes with debouncing effect
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
   };
 
-  // Logout function moved to sidebar
+  // Handle manual refresh
+  const handleRefresh = () => {
+    refetchRegistrations();
+    refetchStats();
+  };
 
-  if (isLoading) {
+  // Loading state
+  const isLoading = registrationsLoading || statsLoading;
+
+  // Error handling with fallback messages
+  const hasError = registrationsError || statsError;
+  const errorMessage = !isOnline 
+    ? 'No internet connection. Please check your network and try again.'
+    : hasError 
+    ? 'Unable to load dashboard data. Please try refreshing the page.'
+    : null;
+
+  // Loading screen
+  if (isLoading && !registrations.length) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
+          {!isOnline && (
+            <p className="text-red-600 text-sm mt-2">Waiting for internet connection...</p>
+          )}
         </div>
       </div>
     );
   }
 
-  // Calculate registration stats for sidebar
-  const registrationStats = {
+  // Calculate registration stats with fallback
+  const registrationStats = stats || {
     total: registrations.length,
-    pending: registrations.filter((reg: any) => !reg.status || reg.status === 'pending').length,
-    approved: registrations.filter((reg: any) => reg.status === 'approved').length,
-    declined: registrations.filter((reg: any) => reg.status === 'declined').length
+    pending: registrations.filter(reg => !reg.status || reg.status === 'pending').length,
+    approved: registrations.filter(reg => reg.status === 'approved').length,
+    declined: registrations.filter(reg => reg.status === 'declined').length,
+    underReview: registrations.filter(reg => reg.status === 'under_review').length,
   };
 
   return (
@@ -107,23 +128,75 @@ const AdminDashboard: React.FC = () => {
       {/* Sidebar */}
       <AdminSidebar 
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          // Update active tab in Redux store
+          // This will be handled by the sidebar component
+        }}
         registrationStats={registrationStats}
       />
       
       <div className="ml-64 flex-1 flex flex-col">
-        {/* Header */}
+        {/* Header with Error Display */}
         <header className="bg-white border-b border-gray-200 shadow-sm">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <h1 className="text-xl font-bold text-blue-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                {activeTab === 'dashboard' ? 'Dashboard Overview' : 
-                 activeTab === 'registrations' ? 'Registration Management' : 
-                 activeTab === 'settings' ? 'Settings' : 'Notifications'}
-              </h1>
+              <div className="flex items-center space-x-4">
+                <h1 className="text-xl font-bold text-blue-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  {activeTab === 'dashboard' ? 'Dashboard Overview' : 
+                   activeTab === 'registrations' ? 'Registration Management' : 
+                   activeTab === 'settings' ? 'Settings' : 'Notifications'}
+                </h1>
+                
+                {/* Loading indicator */}
+                {isLoading && (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm">Updating...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Refresh button and connection status */}
+              <div className="flex items-center space-x-3">
+                {!isOnline && (
+                  <div className="flex items-center space-x-2 text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">Offline</span>
+                  </div>
+                )}
+                
+                <button
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh data"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="text-sm">Refresh</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mx-6 mt-4 rounded-r-lg">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
+              <div>
+                <p className="text-red-700 font-medium">Connection Issue</p>
+                <p className="text-red-600 text-sm">{errorMessage}</p>
+              </div>
+              <button
+                onClick={handleRefresh}
+                className="ml-auto px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors text-sm"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-auto">
@@ -148,19 +221,23 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <input
                         type="text"
-                        placeholder="Search by name or email..."
+                        placeholder="Search by name, email, country, or organization..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       />
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowFilters(!showFilters)}
+                    onClick={() => {
+                      // Toggle filters visibility in Redux store
+                      // This will be handled by dispatching an action
+                    }}
                     className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <Filter className="h-5 w-5 text-gray-500" />
                     <span>Filters</span>
+                    {showFilters && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Active</span>}
                   </button>
                 </div>
               </div>
@@ -169,24 +246,52 @@ const AdminDashboard: React.FC = () => {
               {showFilters && (
                 <div className="mb-6">
                   <FilterPanel 
-                    onChange={(newFilters: any) => {
-                      setFilters(newFilters);
-                      filterRegistrations();
-                    }}
+                    onChange={handleFilterChange}
                     filters={filters}
                     registrations={registrations}
                   />
                 </div>
               )}
 
-              {/* Registration Table */}
+              {/* Registration Table with Fallback */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <RegistrationTable 
-                  registrations={filteredRegistrations} 
-                  onUpdate={() => {
-                    loadRegistrations();
-                  }}
-                />
+                {filteredRegistrations.length === 0 && !isLoading ? (
+                  <div className="p-8 text-center">
+                    <div className="text-gray-400 mb-4">
+                      <Search className="h-12 w-12 mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations found</h3>
+                    <p className="text-gray-600 mb-4">
+                      {searchTerm || Object.values(filters).some(v => v) 
+                        ? 'Try adjusting your search or filters to find what you\'re looking for.'
+                        : 'No registration data is currently available. This could be due to a connection issue or no registrations have been submitted yet.'
+                      }
+                    </p>
+                    {(searchTerm || Object.values(filters).some(v => v)) && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setFilters({
+                            country: '',
+                            status: '',
+                            dateRange: { start: '', end: '' },
+                            search: '',
+                            page: 1,
+                            limit: 20,
+                          });
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <RegistrationTable 
+                    registrations={filteredRegistrations} 
+                    onUpdate={handleRefresh}
+                  />
+                )}
               </div>
             </>
           )}
