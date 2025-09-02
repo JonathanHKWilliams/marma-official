@@ -2,7 +2,6 @@
  * Authentication API slice using RTK Query
  * Handles all authentication-related API calls and caching
  */
-
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { RootState } from '../store';
 import type { 
@@ -14,7 +13,7 @@ import type {
 
 // Base query configuration with authentication
 const baseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  baseUrl: import.meta.env.VITE_API_URL || 'https://marma-official-server.onrender.com/api',
   prepareHeaders: (headers, { getState }) => {
     // Get token from Redux state
     const token = (getState() as RootState).auth.token;
@@ -54,7 +53,16 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
     
     if (refreshResult.data) {
       // Store new token and retry original request
-      api.dispatch(authApi.util.upsertQueryData('getCurrentUser', undefined, refreshResult.data));
+      const refreshData = refreshResult.data as ApiResponse<AuthResponse>;
+      if (refreshData.success && refreshData.data) {
+        // Transform AuthResponse to ApiResponse<User> for caching
+        const userResponse: ApiResponse<User> = {
+          success: true,
+          data: refreshData.data.user,
+          message: 'User data refreshed'
+        };
+        api.dispatch(authApi.util.upsertQueryData('getCurrentUser', undefined, userResponse));
+      }
       result = await baseQuery(args, api, extraOptions);
     } else {
       // Refresh failed, logout user
