@@ -51,6 +51,7 @@ const RegistrationForm: React.FC = () => {
     attestedBy: 'Peter Williams',
   });
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [debouncedEmail, setDebouncedEmail] = useState('');
@@ -157,14 +158,11 @@ const RegistrationForm: React.FC = () => {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          photo: reader.result as string
-        }));
-      };
-      reader.readAsDataURL(file);
+      setPhotoFile(file);
+      setFormData(prev => ({
+        ...prev,
+        photo: URL.createObjectURL(file)
+      }));
     }
   };
   
@@ -319,8 +317,19 @@ const RegistrationForm: React.FC = () => {
         return;
       }
 
+      // Build multipart form data for submission
+      const submissionData = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'photo' && value) {
+          submissionData.append(key, value as string);
+        }
+      });
+      if (photoFile) {
+        submissionData.append('photo', photoFile);
+      }
+
       // Submit the registration
-      const result = await createRegistration(formData).unwrap();
+      const result = await createRegistration(submissionData).unwrap();
       
       if (result.success) {
         setShowSuccess(true);
@@ -414,7 +423,10 @@ const RegistrationForm: React.FC = () => {
               />
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, photo: '' }))}
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, photo: '' }));
+                  setPhotoFile(null);
+                }}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center text-xs"
               >
                 ×
@@ -536,7 +548,7 @@ const RegistrationForm: React.FC = () => {
 
       {renderProgressBar()}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6">
         {/* Step 1: Personal Information */}
         {currentStep === 1 && (
           <div className="space-y-6 animate-fadeIn">
