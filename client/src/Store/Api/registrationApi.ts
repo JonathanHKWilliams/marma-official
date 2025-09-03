@@ -22,7 +22,6 @@ const baseQuery = fetchBaseQuery({
   baseUrl: "https://marma-official-server.onrender.com/api",
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token;
-    headers.set('Content-Type', 'application/json');
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -44,7 +43,7 @@ export const registrationApi = createApi({
      * @param registrationData - Complete registration form data
      * @returns Created registration with generated IDs
      */
-    createRegistration: builder.mutation<ApiResponse<Registration>, CreateRegistrationRequest>({
+    createRegistration: builder.mutation<ApiResponse<Registration>, FormData>({
       query: (registrationData) => ({
         url: '/registrations',
         method: 'POST',
