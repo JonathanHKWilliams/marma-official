@@ -271,7 +271,26 @@ export const changePassword = async (req, res) => {
  */
 export const refreshToken = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required'
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || 'your-secret-key', { ignoreExpiration: true });
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+
+    const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ['password'] }
     });
 
@@ -300,4 +319,14 @@ export const refreshToken = async (req, res) => {
       errors: [error.message]
     });
   }
+};
+
+/**
+ * Logout user
+ */
+export const logout = (req, res) => {
+  return res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
 };
