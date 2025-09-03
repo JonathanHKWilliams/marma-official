@@ -19,7 +19,7 @@ import type {
 
 // Base query with authentication
 const baseQuery = fetchBaseQuery({
-  baseUrl: "https://marma-official-server.onrender.com/api",
+  baseUrl: import.meta.env.VITE_API_URL || 'https://marma-official-server.onrender.com/api',
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token;
     if (token) {
