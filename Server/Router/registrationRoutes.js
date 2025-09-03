@@ -56,7 +56,8 @@ registrationRouter.get('/country/:country', authenticateToken, getRegistrationsB
 
 // Main routes
 registrationRouter.post('/', uploadPhoto, handleUploadError, registrationValidation, createRegistration);
-registrationRouter.get('/all', authenticateToken, getRegistrations);
+// Get all registrations
+registrationRouter.get('/', authenticateToken, getRegistrations);
 
 // ID-based routes (must be last)
 registrationRouter.get('/:id', authenticateToken, getRegistrationById);
