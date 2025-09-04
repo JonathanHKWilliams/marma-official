@@ -165,10 +165,10 @@ export default function(sequelize) {
       beforeCreate: async (registration) => {
         // Generate regional code and identification number
         if (!registration.regionalCode) {
-          registration.regionalCode = await generateRegionalCode(registration.country);
+          registration.regionalCode = await generateRegionalCode(sequelize, registration.country);
         }
         if (!registration.identificationNumber) {
-          registration.identificationNumber = await generateIdentificationNumber(registration.country);
+          registration.identificationNumber = await generateIdentificationNumber(sequelize, registration.country);
         }
       },
       beforeUpdate: (registration) => {
@@ -183,16 +183,63 @@ export default function(sequelize) {
 }
 
 // Helper functions for generating codes
-async function generateRegionalCode(country) {
+async function generateRegionalCode(sequelize, country) {
   const countryPrefix = getCountryPrefix(country);
-  const timestamp = Date.now().toString().slice(-6);
-  return `${countryPrefix}${timestamp}`;
+  const next = await getNextSequence(sequelize, 'regionalCode', country);
+  const seq = String(next).padStart(3, '0');
+  return `${countryPrefix}${seq}`;
 }
 
-async function generateIdentificationNumber(country) {
+async function generateIdentificationNumber(sequelize, country) {
   const countryCode = getCountryCode(country);
-  const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `${countryCode}${randomNum}`;
+  const next = await getNextSequence(sequelize, 'identificationNumber', country);
+  const seq = String(next).padStart(3, '0');
+  return `${countryCode}${seq}`;
+}
+
+function getSequenceModel(sequelize) {
+  if (sequelize.models.Sequence) return sequelize.models.Sequence;
+  return sequelize.define('Sequence', {
+    key: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    country: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    current: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+  }, {
+    tableName: 'Sequence',
+    timestamps: false,
+    indexes: [
+      { unique: true, fields: ['key', 'country'] }
+    ]
+  });
+}
+
+async function getNextSequence(sequelize, key, country) {
+  const Sequence = getSequenceModel(sequelize);
+  const t = await sequelize.transaction();
+  try {
+    const [row] = await Sequence.findOrCreate({
+      where: { key, country },
+      defaults: { current: 0 },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    await row.increment('current', { by: 1, transaction: t });
+    await row.reload({ transaction: t });
+    await t.commit();
+    return row.current;
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 function getCountryPrefix(country) {

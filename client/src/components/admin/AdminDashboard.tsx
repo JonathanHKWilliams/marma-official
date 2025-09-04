@@ -246,8 +246,6 @@ const AdminDashboard: React.FC = () => {
               {showFilters && (
                 <div className="mb-6">
                   <FilterPanel 
-                    onChange={handleFilterChange}
-                    filters={filters}
                     registrations={registrations}
                   />
                 </div>
@@ -297,7 +295,7 @@ const AdminDashboard: React.FC = () => {
           )}
           
           {activeTab === 'notifications' && (
-            <NotificationsPage registrations={registrations} />
+            <NotificationsPage />
           )}
           
           {activeTab === 'settings' && (

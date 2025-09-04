@@ -2,7 +2,7 @@ import db from '../models/index.js';
 import { Op } from 'sequelize';
 import { validationResult } from 'express-validator';
 import { saveBase64AsFile, deleteUploadedFile } from '../middleware/upload.js';
-import { sendEmail } from '../utils/nodemailer.js';
+import { sendEmail, sendApprovalEmail, sendRejectionEmail } from '../utils/nodemailer.js';
 
 /**
  * Parse recommendation string into separate fields
@@ -243,7 +243,7 @@ export const getRegistrationById = async (req, res) => {
 export const updateRegistration = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = req.body; // expects { status?: 'approved'|'declined'|'pending'|'under_review', statusMessage?: string, ... }
 
     const registration = await db.Registration.findByPk(id);
     if (!registration) {
@@ -253,7 +253,26 @@ export const updateRegistration = async (req, res) => {
       });
     }
 
+    // Capture previous status to detect transitions (educational: avoids duplicate emails)
+    const previousStatus = registration.status;
+
+    // Persist updates
     await registration.update(updateData);
+
+    // If status changed, optionally notify the user via email
+    const newStatus = registration.status;
+    const message = updateData.statusMessage || '';
+    try {
+      if (previousStatus !== newStatus && newStatus === 'approved') {
+        await sendApprovalEmail(registration, message);
+      }
+      if (previousStatus !== newStatus && newStatus === 'declined') {
+        await sendRejectionEmail(registration, message);
+      }
+    } catch (emailErr) {
+      // Don't fail the API because of email issues; log for observability
+      console.error('Status change email failed:', emailErr);
+    }
 
     res.json({
       success: true,

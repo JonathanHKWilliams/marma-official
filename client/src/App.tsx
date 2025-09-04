@@ -23,7 +23,6 @@ function App() {
               <AdminDashboard />
             </ProtectedRoute>
           } />
-          {/* <Route path="/test-registration" element={<TestRegistrationFlow />} /> */}
         </Routes>
       </div>
     </Router>

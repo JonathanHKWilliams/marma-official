@@ -21,7 +21,7 @@ const PasswordAuthModal: React.FC<PasswordAuthModalProps> = ({
   // In a real application, this would be a secure API call
   const validatePassword = (inputPassword: string): boolean => {
     // For demo purposes, hardcoded password
-    return inputPassword === 'admin123';
+    return inputPassword === '@admin2025#';
   };
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -9,25 +9,8 @@ dotenv.config();
  */
 export const sendEmail = async (registrationData) => {
     try {
-        // Configure transporter for Gmail with more robust settings
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true, // use SSL
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD, // Must be an app-specific password
-            },
-            tls: {
-                rejectUnauthorized: false // Helps with SSL certificate issues
-            },
-            // Set pool to true to use connection pool for better reliability
-            pool: true,
-            // Set sensible timeouts
-            connectionTimeout: 10000, // 10 seconds
-            greetingTimeout: 10000, // 10 seconds
-            socketTimeout: 15000 // 15 seconds
-        });
+        // Configure transporter for Gmail with robust, production-oriented settings
+        const transporter = createMailTransport();
 
         // Set up email options
         const mailOptions = {
@@ -79,6 +62,93 @@ export const sendEmail = async (registrationData) => {
     }
 };
 
+/**
+ * Send approval email to a member once their registration is approved
+ * @param {object} registrationData - The registration instance/data
+ * @param {string} message - Optional message from admin
+ */
+export const sendApprovalEmail = async (registrationData, message = '') => {
+  const transporter = createMailTransport();
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: registrationData.email,
+    subject: 'MARMA Membership Approved',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://your-logo-url.com" alt="MARMA Logo" style="max-width: 150px;">
+          <h2 style="color: #003366; margin-top: 10px;">Mano River Ministerial Alliance</h2>
+        </div>
+        <p>Dear ${registrationData.fullName},</p>
+        <p>We are pleased to inform you that your membership application has been <strong>approved</strong>.</p>
+        ${message ? `<div style="background:#f5faff;border:1px solid #dbeafe;padding:12px;border-radius:8px"><p style="margin:0"><strong>Message from Admin:</strong> ${message}</p></div>` : ''}
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #003366; margin-top: 0;">Your Membership Details</h3>
+          <p><strong>Regional Code:</strong> ${registrationData.regionalCode || 'Pending'}</p>
+          <p><strong>Identification Number:</strong> ${registrationData.identificationNumber || 'Pending'}</p>
+          <p><strong>Status:</strong> Approved</p>
+        </div>
+        <p>Welcome to MARMA. We will follow up with additional next steps.</p>
+        <p>Warm regards,<br/>The MARMA Team</p>
+      </div>
+    `,
+  };
+  const info = await transporter.sendMail(mailOptions);
+  console.log(`Approval email sent to ${registrationData.email}: ${info.messageId}`);
+  return info;
+};
+
+/**
+ * Send rejection email to a member with reason
+ * @param {object} registrationData - The registration instance/data
+ * @param {string} reason - Reason for rejection
+ */
+export const sendRejectionEmail = async (registrationData, reason = '') => {
+  const transporter = createMailTransport();
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: registrationData.email,
+    subject: 'MARMA Membership Application Update',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://your-logo-url.com" alt="MARMA Logo" style="max-width: 150px;">
+          <h2 style="color: #003366; margin-top: 10px;">Mano River Ministerial Alliance</h2>
+        </div>
+        <p>Dear ${registrationData.fullName},</p>
+        <p>Thank you for your interest in joining the Mano River Ministerial Alliance. After careful review, we are unable to approve your application at this time.</p>
+        ${reason ? `<div style="background:#fff7ed;border:1px solid #fed7aa;padding:12px;border-radius:8px"><p style="margin:0"><strong>Reason:</strong> ${reason}</p></div>` : ''}
+        <p>You are welcome to contact us at support@marma.org for further clarification or to reapply in the future.</p>
+        <p>Kind regards,<br/>The MARMA Team</p>
+      </div>
+    `,
+  };
+  const info = await transporter.sendMail(mailOptions);
+  console.log(`Rejection email sent to ${registrationData.email}: ${info.messageId}`);
+  return info;
+};
+
+/**
+ * Create a reusable Nodemailer transporter using environment config
+ */
+function createMailTransport() {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: Number(process.env.EMAIL_PORT || 465),
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+    pool: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+  });
+}
 
 
 
