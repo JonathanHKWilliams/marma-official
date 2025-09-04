@@ -1,6 +1,13 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
 dotenv.config();
+
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Send registration confirmation email
@@ -20,7 +27,7 @@ export const sendEmail = async (registrationData) => {
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
                 <div style="text-align: center; margin-bottom: 20px;">
-                  <img src="https://your-logo-url.com" alt="MARMA Logo" style="max-width: 150px;">
+                  <img src="cid:marmaLogo" alt="MARMA Logo" style="max-width: 150px;">
                   <h2 style="color: #003366; margin-top: 10px;">Mano River Ministerial Alliance</h2>
                 </div>
                 
@@ -49,6 +56,13 @@ export const sendEmail = async (registrationData) => {
                 </div>
               </div>
             `,
+            attachments: [
+              {
+                filename: 'logo.png',
+                path: path.join(__dirname, '../assets/MARMA Logo.png'), // local file path
+                cid: 'marmaLogo' // same cid as in the img src
+              }
+            ]
           };
       
 
@@ -76,7 +90,7 @@ export const sendApprovalEmail = async (registrationData, message = '') => {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="https://your-logo-url.com" alt="MARMA Logo" style="max-width: 150px;">
+          <img src="cid:marmaLogo" alt="MARMA Logo" style="max-width: 150px;">
           <h2 style="color: #003366; margin-top: 10px;">Mano River Ministerial Alliance</h2>
         </div>
         <p>Dear ${registrationData.fullName},</p>
@@ -92,6 +106,13 @@ export const sendApprovalEmail = async (registrationData, message = '') => {
         <p>Warm regards,<br/>The MARMA Team</p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'logo.png',
+        path: path.join(__dirname, '../assets/MARMA Logo.png'), // local file path
+        cid: 'marmaLogo' // same cid as in the img src
+      }
+    ]
   };
   const info = await transporter.sendMail(mailOptions);
   console.log(`Approval email sent to ${registrationData.email}: ${info.messageId}`);
@@ -112,7 +133,7 @@ export const sendRejectionEmail = async (registrationData, reason = '') => {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="https://your-logo-url.com" alt="MARMA Logo" style="max-width: 150px;">
+          <img src="cid:marmaLogo" alt="MARMA Logo" style="max-width: 150px;">
           <h2 style="color: #003366; margin-top: 10px;">Mano River Ministerial Alliance</h2>
         </div>
         <p>Dear ${registrationData.fullName},</p>
@@ -122,6 +143,13 @@ export const sendRejectionEmail = async (registrationData, reason = '') => {
         <p>Kind regards,<br/>The MARMA Team</p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'logo.png',
+        path: path.join(__dirname, '../assets/MARMA Logo.png'), // local file path
+        cid: 'marmaLogo' // same cid as in the img src
+      }
+    ]
   };
   const info = await transporter.sendMail(mailOptions);
   console.log(`Rejection email sent to ${registrationData.email}: ${info.messageId}`);
